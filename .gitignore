@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Claude Code local settings
+.claude/
+
+# Test artefacts
+scripts/out_test.xlsm
