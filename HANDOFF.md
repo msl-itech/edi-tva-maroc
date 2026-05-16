@@ -149,6 +149,109 @@ Investigation du 16 mai 2026 :
 - Exemple validé avec 43 lignes valides : `Tableau5.ref = A8:M52` et `autoFilter.ref = A8:M51`. C'est intentionnel : la ligne 52 est la ligne de totaux, incluse dans la table mais exclue de l'autofilter.
 - Amélioration optionnelle future : mettre à jour la zone d'impression EDI en `A1:M{last_row}` si l'impression ou l'export PDF devient un besoin utilisateur.
 
+## Manual Validation Checklist - Excel Windows + Streamlit Cloud
+
+### Test Matrix
+
+Run the full checklist with these input cases:
+
+- [ ] 0 valid rows: all rows invalid, generation must be blocked.
+- [ ] 1 valid row: generation must succeed, table must contain 1 data row + totals row.
+- [ ] Around 43 valid rows: use current sample-like volume.
+- [ ] 500+ valid rows: validate performance, table expansion, download, and Excel behavior.
+
+### Local / Streamlit App Flow
+
+For each test file:
+
+- [ ] Open the app locally or on Streamlit Cloud.
+- [ ] Fill declaration header:
+  - [ ] Raison sociale
+  - [ ] IF
+  - [ ] Année
+  - [ ] Période
+  - [ ] Régime
+- [ ] Upload the real Odoo `.xlsx` export.
+- [ ] Confirm the app reads the file without crash.
+- [ ] Confirm the app shows expected input row count.
+- [ ] Confirm invalid rows appear in the anomaly report with line number, reference, partner, and errors.
+- [ ] Confirm generation is blocked when anomalies exist.
+- [ ] If generation is expected, correct/filter the input so there are no blocking anomalies.
+- [ ] Generate the `.xlsm`.
+- [ ] Download the `.xlsm`.
+- [ ] Record generated filename and timestamp.
+
+### Excel Windows Validation
+
+For each generated `.xlsm`:
+
+- [ ] Open the file in Microsoft Excel on Windows.
+- [ ] Confirm Excel does not report corruption or repair the workbook.
+- [ ] Enable macros / content when prompted.
+- [ ] Confirm the "Générer XML" button is visible.
+- [ ] Confirm logos/images are visible.
+- [ ] Confirm the EDI table is populated with the expected number of rows.
+- [ ] Confirm the totals row is present.
+- [ ] Confirm TAUX displays as percent, e.g. `20%`, while preserving decimal XML behavior.
+- [ ] Confirm ICE values keep leading zeros and 15-character format.
+- [ ] Confirm dates display correctly.
+- [ ] Click the "Générer XML" button.
+- [ ] Confirm Excel generates an XML file.
+- [ ] Open the XML file in a text editor.
+- [ ] Confirm XML contains expected header fields:
+  - [ ] identifiantFiscal
+  - [ ] annee
+  - [ ] periode
+  - [ ] regime
+- [ ] Confirm XML contains expected `rd` rows.
+- [ ] Confirm row count in XML matches valid EDI rows, not including totals.
+- [ ] Confirm sample fields are present:
+  - [ ] ord
+  - [ ] num
+  - [ ] des
+  - [ ] mht
+  - [ ] tva
+  - [ ] ttc
+  - [ ] refF/if
+  - [ ] refF/nom
+  - [ ] refF/ice
+  - [ ] tx
+  - [ ] mp/id
+  - [ ] dpai
+  - [ ] dfac
+
+### Streamlit Cloud Parity
+
+For the same validated input file:
+
+- [ ] Generate `.xlsm` locally.
+- [ ] Generate `.xlsm` from Streamlit Cloud.
+- [ ] Open both files in Excel Windows.
+- [ ] Confirm both files show the button.
+- [ ] Confirm both files generate XML successfully.
+- [ ] Confirm both XML outputs have the same row count and key values.
+- [ ] Confirm no Streamlit Cloud-specific download or file corruption issue.
+
+### Failure Evidence To Capture
+
+For any failure, save:
+
+- [ ] Input Odoo `.xlsx` used.
+- [ ] Generated `.xlsm`.
+- [ ] Generated XML, if any.
+- [ ] Screenshot of Streamlit error/anomaly screen.
+- [ ] Screenshot of Excel warning, corruption repair dialog, or missing button.
+- [ ] Screenshot of macro error, if any.
+- [ ] Browser download filename and timestamp.
+- [ ] Streamlit Cloud logs or console output, if available.
+- [ ] Local terminal output from:
+
+```powershell
+python scripts/test_sample.py
+```
+
+- [ ] Notes with exact steps to reproduce.
+
 ---
 
 ## 🐛 Historique des bugs résolus
