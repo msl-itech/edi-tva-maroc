@@ -70,9 +70,9 @@ L'app de production est sur **https://edi-tva-maroc.streamlit.app**. Tout push s
 
 ## Après avoir fait des changements
 
-1. **Lance `python scripts/test_sample.py`** — doit toujours passer
+1. **Lance `python scripts/test_sample.py`** — doit toujours passer. Ce test définit aussi le contrat de préservation `.xlsm` (VBA, XML Map, drawings, médias, table, formules, formats critiques).
 2. **Vérifie** que l'app se lance sans erreur : `python -m streamlit run app.py`
-3. **Si tu as modifié la logique d'injection .xlsm**, lance aussi `scripts/inspect_files.py` pour vérifier que les fichiers binaires critiques (VBA, XML Map, drawings) sont toujours préservés
+3. **Si tu as modifié la logique d'injection .xlsm**, vérifie le contrat avec `python scripts/test_sample.py`; lance aussi `scripts/inspect_files.py` si tu dois inspecter/debugger les fichiers internes
 4. **Résume les fichiers modifiés** et explique les changements en français
 5. **Mentionne tout test que tu n'as pas pu exécuter** et pourquoi
 6. **Ne commit JAMAIS sans demande explicite** du mainteneur
@@ -84,7 +84,7 @@ L'app de production est sur **https://edi-tva-maroc.streamlit.app**. Tout push s
 | ❌ Ne pas faire | ✅ Pourquoi |
 |----------------|-----------|
 | Modifier `templates/EDI_MAROCAINE_XML_GENERATOR.xlsm` | C'est le template DGI sacré, immuable |
-| Faire `load_workbook(...) + save(...)` sur le template | Casse les drawings (bouton "Générer XML") — utiliser l'approche **PATCH ZIP** existante |
+| Faire un cycle `load_workbook(...) + save(...)` sans réparation ZIP post-save | Casse les drawings/XML internes — l'état actuel est `openpyxl` en mémoire puis réparation ZIP ciblée |
 | Ajouter une dépendance Python sans accord | Le `requirements.txt` doit rester minimaliste pour Streamlit Cloud |
 | Committer des données client réelles | Toujours anonymiser dans samples/ |
 | Committer des secrets (.env, secrets.toml) | Sécurité, gitignored |
@@ -94,23 +94,41 @@ L'app de production est sur **https://edi-tva-maroc.streamlit.app**. Tout push s
 
 ---
 
-## L'approche PATCH ZIP (technique critique)
+## Stratégie .xlsm actuelle : openpyxl + réparation ZIP
 
-Le code dans `app.py` utilise une approche par **patching de l'archive ZIP** du .xlsm plutôt que `openpyxl.load_workbook() + save()`. Cette approche est OBLIGATOIRE car openpyxl perd les drawings (boutons, shapes) lors d'un cycle load+save complet.
+Le code dans `app.py` n'est **pas** actuellement une implémentation PATCH ZIP stricte. L'état réel est une stratégie hybride :
+
+1. Charger le template en mémoire avec `openpyxl.load_workbook(..., keep_vba=True)`
+2. Modifier les cellules, styles, largeurs, hauteurs, range du tableau et formules via openpyxl
+3. Sauvegarder en mémoire avec `wb.save(...)`
+4. Réparer ensuite l'archive ZIP générée pour remettre les parties critiques que openpyxl supprime ou réécrit mal
+
+Cette réparation post-save est obligatoire car openpyxl perd les drawings (bouton "Générer XML") et certains XML internes lors d'un cycle load/save complet.
+
+Réparations actuelles dans `app.py` :
+- Réinjecter si besoin :
+  - `xl/xmlMaps.xml` (XML Map DGI)
+  - `xl/tables/tableSingleCells1.xml` (bindings header C3..C6)
+- Écraser depuis le template :
+  - `xl/drawings/drawing1.xml` (bouton "Générer XML" et macro `[0]!Export216`)
+- Patcher les relations / content types :
+  - `[Content_Types].xml`
+  - `xl/_rels/workbook.xml.rels`
+  - `xl/worksheets/_rels/sheet1.xml.rels`
 
 Si tu dois modifier la logique d'injection :
-- **Garde l'approche PATCH ZIP** intacte
-- Modifie uniquement ces fichiers internes du template :
-  - `xl/worksheets/sheet1.xml` (data du tableau)
-  - `xl/tables/table1.xml` (range et totals)
-- **Préserve binaire à 100%** :
+- **Garde la stratégie hybride actuelle intacte** sauf validation explicite du mainteneur
+- **Ne prétends pas** que le code actuel est un PATCH ZIP strict
+- **Préserve binaire à 100% quand le template contient ces fichiers** :
   - `xl/vbaProject.bin` (macros)
   - `xl/xmlMaps.xml` (XML Map DGI)
-  - `xl/drawings/*` (bouton "Générer XML")
-  - `xl/ctrlProps/*` (propriétés bouton)
+  - `xl/drawings/drawing1.xml` (bouton "Générer XML")
   - `xl/media/*` (logos)
   - `xl/tables/tableSingleCells1.xml` (bindings header)
-- **Vérifie systématiquement** avec `scripts/inspect_files.py` après chaque modification
+- **Vérifie systématiquement** avec `python scripts/test_sample.py` après chaque modification : ce test est le contrat de préservation `.xlsm`
+- `scripts/inspect_files.py` reste utile pour inspection/debug, mais ne remplace pas `test_sample.py`
+
+Une implémentation PATCH ZIP stricte (modifier directement `xl/worksheets/sheet1.xml` et `xl/tables/table1.xml` sans `wb.save`) reste une **tâche future possible de durcissement**, pas l'état courant du projet.
 
 ---
 

@@ -29,10 +29,10 @@ Odoo .xlsx  →  Streamlit (mapping/validation)  →  .xlsm rempli
 - ✅ Upload export Odoo .xlsx (12 colonnes attendues)
 - ✅ Validation stricte ligne par ligne (rapport d'anomalies)
 - ✅ Mapping complet Odoo → EDI (13 colonnes)
-- ✅ Génération .xlsm avec préservation totale :
+- ✅ Génération .xlsm avec préservation contrôlée par `scripts/test_sample.py` :
   - VBA (`vbaProject.bin`)
   - XML Map DGI (`xmlMaps.xml`)
-  - Bouton "Générer XML" (drawings + ctrlProps)
+  - Bouton "Générer XML" (`xl/drawings/drawing1.xml`)
   - Header bindings (`tableSingleCells1.xml`)
   - Images / logos
 - ✅ Style table alternance bleue sur toutes les lignes (pas seulement les 8 premières)
@@ -67,7 +67,7 @@ edi-tva-maroc/
 │   └── Odoo_template.xlsx                 # Sample de test (80 lignes)
 ├── scripts/
 │   ├── inspect_files.py                   # Utilitaire inspection des .xlsm
-│   ├── test_sample.py                     # Test du mapping sur le sample
+│   ├── test_sample.py                     # Test mapping + contrat préservation .xlsm
 │   └── out_test.xlsm                      # Sortie de test (ignoré par git)
 └── docs/
     └── superpowers/plans/                 # Plans de travail Claude Code (historique)
@@ -83,7 +83,7 @@ edi-tva-maroc/
 | `templates/EDI_MAROCAINE_XML_GENERATOR.xlsm` | Template DGI avec VBA et XML Map | **JAMAIS** |
 | `samples/Odoo_template.xlsx` | Sample de test (80 lignes) | À régénérer si format Odoo change |
 | `SPEC.md` | Spec métier complète (17 décisions verrouillées) | Modifier UNIQUEMENT avec aval du mainteneur |
-| `scripts/test_sample.py` | Test isolé du mapping (sans Streamlit) | OUI pour ajouter des cas de test |
+| `scripts/test_sample.py` | Test isolé mapping + contrat de préservation `.xlsm` | OUI pour ajouter des cas de test |
 
 ---
 
@@ -100,29 +100,40 @@ edi-tva-maroc/
 
 ---
 
-## 🛠️ Approche technique : PATCH ZIP (critique à comprendre)
+## 🛠️ Approche technique actuelle : openpyxl + réparation ZIP post-save
 
 **Problème historique** : `openpyxl` load_workbook + save **perd** les drawings (boutons, shapes) et certains XML internes du .xlsm.
 
-**Solution implémentée** : ne PAS faire `load + save` complet. À la place :
-1. Copier le template binaire intégralement vers une nouvelle archive ZIP en mémoire
-2. Ne modifier QUE 3 fichiers internes :
-   - `xl/worksheets/sheet1.xml` (data + heights + widths)
-   - `xl/tables/table1.xml` (range + totals)
-   - (Et le header header bindings dans `xl/tables/tableSingleCells1.xml` reste identique)
-3. Préserver TOUS les autres fichiers tels quels (vbaProject.bin, xmlMaps.xml, drawings, ctrlProps, media, etc.)
+**Solution implémentée aujourd'hui** : ce n'est pas un PATCH ZIP strict. Le code :
+1. Charge le template en mémoire avec `openpyxl.load_workbook(..., keep_vba=True)`
+2. Modifie les cellules, styles, largeurs, hauteurs, range du tableau et formules via openpyxl
+3. Sauvegarde en mémoire avec `wb.save(...)`
+4. Répare ensuite l'archive ZIP générée pour réinjecter/écraser les parties critiques que openpyxl supprime ou réécrit mal
 
-**Cette approche est la SEULE qui fonctionne** pour préserver le bouton "Générer XML" du template. Toute reprise du code doit conserver cette approche.
+Réparations actuelles dans `app.py` :
+- Réinjecter si absent :
+  - `xl/xmlMaps.xml` — XML Map DGI
+  - `xl/tables/tableSingleCells1.xml` — bindings header C3..C6
+- Écraser depuis le template :
+  - `xl/drawings/drawing1.xml` — bouton "Générer XML" avec macro `[0]!Export216`
+- Patcher les relations/content types :
+  - `[Content_Types].xml`
+  - `xl/_rels/workbook.xml.rels`
+  - `xl/worksheets/_rels/sheet1.xml.rels`
+
+**Contrat de sécurité** : `python scripts/test_sample.py` vérifie maintenant explicitement la préservation `.xlsm` : ZIP valide, VBA/XML Map/tableSingleCells/drawing byte-identiques, relations drawing + médias, content type macro-enabled, range/autofilter du tableau, chargement openpyxl `keep_vba=True`, formules de totaux et formats ICE/TAUX/dates.
+
+Une implémentation PATCH ZIP stricte (modifier directement `xl/worksheets/sheet1.xml` et `xl/tables/table1.xml` sans `wb.save`) reste une **tâche future possible de durcissement**, pas l'état courant du projet.
 
 Fichiers du template à NE JAMAIS toucher :
 - `xl/vbaProject.bin` — la macro
 - `xl/xmlMaps.xml` — le mapping XML DGI
-- `xl/drawings/*.xml` — le bouton
-- `xl/ctrlProps/*.xml` — propriétés du bouton
+- `xl/drawings/drawing1.xml` — le bouton
+- `xl/ctrlProps/*.xml` — propriétés du bouton, si un futur template en contient
 - `xl/media/*` — logos
 - `xl/tables/tableSingleCells1.xml` — bindings du header
 
-Fichiers acceptables à modifier :
+Fichiers que la logique de génération modifie actuellement via openpyxl :
 - `xl/worksheets/sheet1.xml` — le contenu du tableau
 - `xl/tables/table1.xml` — la range du tableau et la totals row
 
@@ -134,7 +145,7 @@ Fichiers acceptables à modifier :
 |---|-----|--------------------|
 | 1 | Style table alternance perdu après la 8e ligne | Copie programmatique du `_style` d'une row du milieu pour toutes les nouvelles rows |
 | 2 | Ligne de totaux effacée et vide | Préservation du style row 17 + formules SUBTOTAL réinjectées sur la nouvelle dernière ligne |
-| 3 | Bouton "Générer XML" disparu du fichier généré | Bascule complète vers l'approche **PATCH ZIP** au lieu de openpyxl load+save |
+| 3 | Bouton "Générer XML" disparu du fichier généré | Réparation ZIP post-save : `drawing1.xml` est écrasé depuis le template après `wb.save()` |
 | 4 | Hauteurs de lignes hétérogènes | `row_dimensions[r].height = 17.25` sur toutes les data rows |
 | 5 | Colonnes trop étroites pour noms fournisseurs longs | Auto-fit dynamique : `width = max_len * 1.1 + 2`, plancher = template, plafond = 50 |
 
@@ -206,9 +217,9 @@ Connecté automatiquement au repo `msl-itech/edi-tva-maroc`, branche `main`.
 1. **Ne jamais modifier** `templates/EDI_MAROCAINE_XML_GENERATOR.xlsm` (c'est le template DGI sacré)
 2. **Ne jamais committer** de données client réelles (anonymiser les samples)
 3. **Ne jamais committer** de secrets (`.streamlit/secrets.toml` est gitignored)
-4. **Ne jamais casser** l'approche PATCH ZIP — si on doit modifier app.py, garder cette logique
+4. **Ne jamais casser** la stratégie actuelle openpyxl + réparation ZIP post-save — si on doit modifier app.py, garder cette logique sauf aval explicite
 5. **Toujours tester** sur `samples/Odoo_template.xlsx` AVANT de pousser
-6. **Toujours vérifier** par script que les fichiers binaires critiques sont préservés (`scripts/inspect_files.py`)
+6. **Toujours vérifier** par script que les fichiers critiques `.xlsm` sont préservés (`python scripts/test_sample.py`, puis `scripts/inspect_files.py` si besoin de debug)
 
 ---
 
