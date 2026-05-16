@@ -44,7 +44,7 @@ GO.
 ## 📋 CONTEXTE MÉTIER
 
 ### Le problème
-La déclaration TVA mensuelle (régime débit) ou trimestrielle (régime encaissement) au Maroc se fait via le portail **SIMPL-TVA** de la DGI (Direction Générale des Impôts). Les entreprises doivent soumettre :
+La déclaration TVA mensuelle ou trimestrielle au Maroc se fait via le portail **SIMPL-TVA** de la DGI (Direction Générale des Impôts). Les entreprises doivent soumettre :
 - Un **Relevé de déductions** (achats avec TVA déductible) — *périmètre de cette v1*
 - Un **État des encaissements** (ventes avec TVA collectée) — *out of scope v1*
 
@@ -87,7 +87,7 @@ Ces relevés peuvent être saisis manuellement OU importés via un **fichier XML
    - `Identifiant fiscal IF` (texte/nombre)
    - `Année` (dropdown 2016–2030)
    - `Période` (dropdown 1–12, représente le mois)
-   - `Régime` (radio : 1 = Encaissement, 2 = Débit)
+   - `Régime` (radio : 1 = TVA mensuel, 2 = TVA trimestriel)
 
 ### Mapping des colonnes (Odoo → EDI)
 
@@ -344,7 +344,7 @@ Cabinet MSL-iTECH · Mapping Odoo → Template EDI .xlsm
 
 1️⃣  Paramètres de la déclaration
    [Raison sociale]    [IF]
-   [Année ▼]    [Période ▼]    [Régime ⦿ Débit ○ Encaissement]
+   [Année ▼]    [Période ▼]    [Régime ⦿ Mensuel ○ Trimestriel]
    [✅ Valider paramètres]
 
 2️⃣  Upload export Odoo (.xlsx)
@@ -481,7 +481,7 @@ Données attendues après analyse :
 - `C3` : Identifiant Fiscal
 - `C4` : Année (int, validation list 2016-2030)
 - `C5` : Période (int, validation list 1-12)
-- `C6` : Régime (int, 1=Encais, 2=Débit)
+- `C6` : Régime (int, 1=TVA mensuel, 2=TVA trimestriel)
 
 ### Tableau5 (à écrire)
 - Range initial : `A8:M17` (1 header + 8 data + 1 totals)

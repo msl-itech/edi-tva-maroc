@@ -612,8 +612,8 @@ def main() -> None:
         with c5:
             regime = st.radio(
                 "Régime",
-                [2, 1],
-                format_func=lambda v: "Débit" if v == 2 else "Encaissement",
+                [1, 2],
+                format_func=lambda v: "Mensuel" if v == 1 else "Trimestriel",
                 horizontal=True,
             )
         submitted = st.form_submit_button("✅ Valider paramètres")

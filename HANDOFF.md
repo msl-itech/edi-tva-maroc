@@ -170,7 +170,7 @@ For each test file:
   - [ ] IF
   - [ ] Année
   - [ ] Période
-  - [ ] Régime
+  - [ ] Régime (`1 = TVA mensuel`, `2 = TVA trimestriel`)
 - [ ] Upload the real Odoo `.xlsx` export.
 - [ ] Confirm the app reads the file without crash.
 - [ ] Confirm the app shows expected input row count.
