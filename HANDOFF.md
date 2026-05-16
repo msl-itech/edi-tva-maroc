@@ -137,6 +137,18 @@ Fichiers que la logique de génération modifie actuellement via openpyxl :
 - `xl/worksheets/sheet1.xml` — le contenu du tableau
 - `xl/tables/table1.xml` — la range du tableau et la totals row
 
+### Note named ranges / print areas
+
+Investigation du 16 mai 2026 :
+- Le template contient deux defined names invalides côté feuille CA :
+  - `_xlnm._FilterDatabase` → `CA!#REF!`
+  - `_xlnm.Print_Area` → `CA!#REF!`
+- Le fichier généré ne conserve plus ces defined names CA invalides. Il garde uniquement la zone d'impression EDI.
+- La zone d'impression EDI reste `EDI!$A$1:$M$17` même quand le tableau généré s'étend au-delà de la ligne 17.
+- Ce n'est pas considéré bloquant pour la génération XML : l'export XML dépend de `xl/tables/table1.xml`, du XML Map et de `xl/tables/tableSingleCells1.xml`, pas de la zone d'impression.
+- Exemple validé avec 43 lignes valides : `Tableau5.ref = A8:M52` et `autoFilter.ref = A8:M51`. C'est intentionnel : la ligne 52 est la ligne de totaux, incluse dans la table mais exclue de l'autofilter.
+- Amélioration optionnelle future : mettre à jour la zone d'impression EDI en `A1:M{last_row}` si l'impression ou l'export PDF devient un besoin utilisateur.
+
 ---
 
 ## 🐛 Historique des bugs résolus
