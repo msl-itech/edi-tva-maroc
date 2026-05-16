@@ -94,6 +94,314 @@ TOTALS_ROW_HEIGHT = 12.75
 
 
 # ---------------------------------------------------------------------------
+# UI helpers
+# ---------------------------------------------------------------------------
+def inject_platform_css() -> None:
+    """Inject lightweight theme-aware styling for a cleaner platform feel."""
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background: var(--background-color);
+            color: var(--text-color);
+        }
+
+        [data-testid="stAppViewContainer"] {
+            background: var(--background-color);
+        }
+
+        [data-testid="stHeader"] {
+            background: transparent;
+        }
+
+        [data-testid="stToolbar"] {
+            right: 1rem;
+        }
+
+        .block-container {
+            max-width: 1180px;
+            padding-top: 1rem;
+            padding-bottom: 1.75rem;
+        }
+
+        .platform-header {
+            padding: 0.25rem 0 0.9rem;
+            margin-bottom: 0.9rem;
+            border-bottom: 1px solid color-mix(
+                in srgb,
+                var(--text-color) 14%,
+                transparent
+            );
+        }
+
+        .platform-eyebrow {
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: color-mix(in srgb, var(--text-color) 65%, var(--background-color));
+            margin-bottom: 0.35rem;
+        }
+
+        .platform-title {
+            font-size: 1.95rem;
+            font-weight: 700;
+            line-height: 1.1;
+            margin: 0;
+        }
+
+        .platform-subtitle {
+            font-size: 0.98rem;
+            color: color-mix(in srgb, var(--text-color) 72%, var(--background-color));
+            margin-top: 0.4rem;
+            max-width: 72ch;
+        }
+
+        .platform-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-top: 0.7rem;
+        }
+
+        .platform-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.34rem 0.62rem;
+            border-radius: 999px;
+            border: 1px solid color-mix(
+                in srgb,
+                var(--text-color) 12%,
+                transparent
+            );
+            background: color-mix(
+                in srgb,
+                var(--background-color) 88%,
+                var(--primary-color) 12%
+            );
+            color: color-mix(in srgb, var(--text-color) 84%, var(--background-color));
+            font-size: 0.8rem;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .workflow-strip {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.5rem;
+            margin: 0 0 0.85rem;
+        }
+
+        .workflow-step {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.55rem 0.75rem;
+            border-radius: 14px;
+            border: 1px solid color-mix(
+                in srgb,
+                var(--text-color) 12%,
+                transparent
+            );
+            background: color-mix(
+                in srgb,
+                var(--background-color) 90%,
+                var(--primary-color) 10%
+            );
+        }
+
+        .workflow-index {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.45rem;
+            height: 1.45rem;
+            border-radius: 999px;
+            background: color-mix(
+                in srgb,
+                var(--text-color) 12%,
+                var(--background-color)
+            );
+            color: color-mix(in srgb, var(--text-color) 82%, var(--background-color));
+            font-size: 0.78rem;
+            font-weight: 700;
+            flex: 0 0 auto;
+        }
+
+        .workflow-text {
+            display: flex;
+            flex-direction: column;
+            gap: 0.05rem;
+            min-width: 0;
+        }
+
+        .workflow-label {
+            font-size: 0.92rem;
+            font-weight: 650;
+            line-height: 1.15;
+            margin: 0;
+        }
+
+        .workflow-hint {
+            font-size: 0.78rem;
+            color: color-mix(in srgb, var(--text-color) 60%, var(--background-color));
+            margin: 0;
+        }
+
+        .section-header {
+            margin-bottom: 0.6rem;
+        }
+
+        .section-kicker {
+            font-size: 0.76rem;
+            font-weight: 650;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: color-mix(in srgb, var(--text-color) 60%, var(--background-color));
+            margin-bottom: 0.2rem;
+        }
+
+        .section-title {
+            font-size: 1.12rem;
+            font-weight: 650;
+            line-height: 1.25;
+            margin: 0;
+        }
+
+        .section-note {
+            font-size: 0.92rem;
+            color: color-mix(in srgb, var(--text-color) 72%, var(--background-color));
+            margin-top: 0.2rem;
+        }
+
+        div[data-testid="stForm"] {
+            padding: 0;
+            border: none;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            border-radius: 18px;
+            border: 1px solid color-mix(
+                in srgb,
+                var(--text-color) 12%,
+                transparent
+            );
+            background: color-mix(
+                in srgb,
+                var(--background-color) 94%,
+                var(--primary-color) 6%
+            );
+            box-shadow: 0 8px 28px color-mix(
+                in srgb,
+                var(--text-color) 8%,
+                transparent
+            );
+            padding: 0.95rem 1rem 1rem;
+            margin-bottom: 0.9rem;
+        }
+
+        div[data-testid="stExpander"] {
+            border-color: color-mix(in srgb, var(--text-color) 14%, transparent);
+        }
+
+        div[data-testid="stDataFrame"] {
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        div[data-testid="stAlert"] {
+            border-radius: 14px;
+            border: 1px solid color-mix(
+                in srgb,
+                var(--text-color) 12%,
+                transparent
+            );
+            box-shadow: none;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_platform_header() -> None:
+    """Render the page header without affecting business flow."""
+    st.markdown(
+        """
+        <div class="platform-header">
+            <div class="platform-eyebrow">MSL-iTECH · Odoo vers EDI .xlsm</div>
+            <h1 class="platform-title">EDI TVA Maroc</h1>
+            <div class="platform-subtitle">
+                Préparez un fichier .xlsm prêt pour Excel Windows, avec validation
+                bloquante et conservation du template DGI.
+            </div>
+            <div class="platform-chips">
+                <span class="platform-chip">Validation bloquante</span>
+                <span class="platform-chip">Excel Windows</span>
+                <span class="platform-chip">XML Map DGI</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_workflow_strip() -> None:
+    """Render a compact four-step workflow strip."""
+    st.markdown(
+        """
+        <div class="workflow-strip">
+            <div class="workflow-step">
+                <div class="workflow-index">1</div>
+                <div class="workflow-text">
+                    <div class="workflow-label">Paramètres</div>
+                    <div class="workflow-hint">Header de déclaration</div>
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="workflow-index">2</div>
+                <div class="workflow-text">
+                    <div class="workflow-label">Import</div>
+                    <div class="workflow-hint">Export Odoo .xlsx</div>
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="workflow-index">3</div>
+                <div class="workflow-text">
+                    <div class="workflow-label">Validation</div>
+                    <div class="workflow-hint">Contrôle bloquant</div>
+                </div>
+            </div>
+            <div class="workflow-step">
+                <div class="workflow-index">4</div>
+                <div class="workflow-text">
+                    <div class="workflow-label">Génération</div>
+                    <div class="workflow-hint">Téléchargement .xlsm</div>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_section_header(step: str, title: str, note: str | None = None) -> None:
+    """Render a consistent section header for the workflow bands."""
+    note_html = f'<div class="section-note">{note}</div>' if note else ""
+    st.markdown(
+        f"""
+        <div class="section-header">
+            <div class="section-kicker">{step}</div>
+            <div class="section-title">{title}</div>
+            {note_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Loading
 # ---------------------------------------------------------------------------
 def load_odoo(uploaded_bytes: bytes) -> pd.DataFrame:
@@ -589,34 +897,40 @@ def _safe_name(s: str) -> str:
 
 def main() -> None:
     st.set_page_config(page_title="EDI TVA Maroc", page_icon="📑", layout="wide")
-    st.title("📑 EDI TVA Maroc — Générateur de fichier de déclaration")
-    st.caption("Cabinet MSL-iTECH · Mapping Odoo → Template EDI .xlsm")
+    inject_platform_css()
+    render_platform_header()
+    render_workflow_strip()
 
     if not TEMPLATE_PATH.exists():
         st.error(f"Template introuvable : {TEMPLATE_PATH}")
         st.stop()
 
     # 1. Paramètres ----------------------------------------------------------
-    st.subheader("1️⃣  Paramètres de la déclaration")
-    with st.form("decl_form"):
-        c1, c2 = st.columns(2)
-        with c1:
-            raison_sociale = st.text_input("Raison sociale")
-        with c2:
-            if_decl = st.text_input("Identifiant fiscal (IF)")
-        c3, c4, c5 = st.columns(3)
-        with c3:
-            annee = st.selectbox("Année", list(range(2016, 2031)), index=10)
-        with c4:
-            periode = st.selectbox("Période (mois)", list(range(1, 13)), index=0)
-        with c5:
-            regime = st.radio(
-                "Régime",
-                [1, 2],
-                format_func=lambda v: "Mensuel" if v == 1 else "Trimestriel",
-                horizontal=True,
-            )
-        submitted = st.form_submit_button("✅ Valider paramètres")
+    with st.container(border=True):
+        render_section_header(
+            "ÉTAPE 1",
+            "Paramètres de la déclaration",
+            "Saisissez les informations du header avant d’importer l’export Odoo.",
+        )
+        with st.form("decl_form"):
+            c1, c2 = st.columns(2)
+            with c1:
+                raison_sociale = st.text_input("Raison sociale")
+            with c2:
+                if_decl = st.text_input("Identifiant fiscal (IF)")
+            c3, c4, c5 = st.columns(3)
+            with c3:
+                annee = st.selectbox("Année", list(range(2016, 2031)), index=10)
+            with c4:
+                periode = st.selectbox("Période (mois)", list(range(1, 13)), index=0)
+            with c5:
+                regime = st.radio(
+                    "Régime",
+                    [1, 2],
+                    format_func=lambda v: "Mensuel" if v == 1 else "Trimestriel",
+                    horizontal=True,
+                )
+            submitted = st.form_submit_button("✅ Valider paramètres")
 
     if submitted:
         if not raison_sociale.strip() or not if_decl.strip():
@@ -637,60 +951,75 @@ def main() -> None:
         return
 
     # 2. Upload --------------------------------------------------------------
-    st.subheader("2️⃣  Upload export Odoo (.xlsx)")
-    up = st.file_uploader("Glisse-dépose le fichier Odoo", type=["xlsx"])
-    if up is None:
-        return
+    with st.container(border=True):
+        render_section_header(
+            "ÉTAPE 2",
+            "Upload export Odoo (.xlsx)",
+            "Glissez-déposez un export Excel Odoo pour lancer la lecture et le contrôle.",
+        )
+        up = st.file_uploader("Glisse-dépose le fichier Odoo", type=["xlsx"])
+        if up is None:
+            return
 
-    try:
-        df_odoo = load_odoo(up.getvalue())
-    except Exception as e:  # noqa: BLE001
-        st.error(f"Lecture impossible : {e}")
-        return
-    st.success(f"{len(df_odoo)} ligne(s) chargée(s).")
-    with st.expander("Aperçu des 10 premières lignes"):
-        st.dataframe(df_odoo.head(10), use_container_width=True)
+        try:
+            df_odoo = load_odoo(up.getvalue())
+        except Exception as e:  # noqa: BLE001
+            st.error(f"Lecture impossible : {e}")
+            return
+        st.success(f"{len(df_odoo)} ligne(s) chargée(s).")
+        with st.expander("Aperçu des 10 premières lignes"):
+            st.dataframe(df_odoo.head(10), use_container_width=True)
 
     # 3. Validation ----------------------------------------------------------
-    st.subheader("3️⃣  Validation et contrôle")
-    try:
-        df_edi, anomalies = validate_and_transform(df_odoo)
-    except ValueError as e:
-        st.error(str(e))
-        return
+    with st.container(border=True):
+        render_section_header(
+            "ÉTAPE 3",
+            "Validation et contrôle",
+            "Les anomalies bloquantes empêchent la génération du fichier EDI.",
+        )
+        try:
+            df_edi, anomalies = validate_and_transform(df_odoo)
+        except ValueError as e:
+            st.error(str(e))
+            return
 
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Lignes en entrée", len(df_odoo))
-    m2.metric("Lignes valides", len(df_edi))
-    m3.metric("Anomalies", len(anomalies))
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Lignes en entrée", len(df_odoo))
+        m2.metric("Lignes valides", len(df_edi))
+        m3.metric("Anomalies", len(anomalies))
 
-    if anomalies:
-        st.warning(f"⚠️ Génération bloquée — {len(anomalies)} ligne(s) en anomalie :")
-        st.dataframe(pd.DataFrame(anomalies), use_container_width=True)
-        return
+        if anomalies:
+            st.warning(f"⚠️ Génération bloquée — {len(anomalies)} ligne(s) en anomalie :")
+            st.dataframe(pd.DataFrame(anomalies), use_container_width=True)
+            return
 
-    if df_edi.empty:
-        st.warning("Aucune ligne valide à exporter.")
-        return
+        if df_edi.empty:
+            st.warning("Aucune ligne valide à exporter.")
+            return
 
     # 4. Génération ----------------------------------------------------------
-    st.subheader("4️⃣  Génération du fichier EDI .xlsm")
-    template_bytes = TEMPLATE_PATH.read_bytes()
-    if st.button("🚀 Générer", type="primary"):
-        with st.spinner("Génération du .xlsm…"):
-            xlsm_bytes = build_edi_xlsm(df_edi, header, template_bytes)
-        ts = _dt.datetime.now().strftime("%Y%m%d_%H%M")
-        fname = (
-            f"EDI_TVA_{_safe_name(header['raison_sociale'])}_"
-            f"{header['annee']}_M{header['periode']:02d}_{ts}.xlsm"
+    with st.container(border=True):
+        render_section_header(
+            "ÉTAPE 4",
+            "Génération du fichier EDI .xlsm",
+            "Le fichier est préparé pour téléchargement puis ouverture dans Excel Windows.",
         )
-        st.download_button(
-            "⬇️ Télécharger le .xlsm",
-            data=xlsm_bytes,
-            file_name=fname,
-            mime="application/vnd.ms-excel.sheet.macroEnabled.12",
-        )
-        st.success(f"Fichier prêt : {fname}")
+        template_bytes = TEMPLATE_PATH.read_bytes()
+        if st.button("🚀 Générer", type="primary"):
+            with st.spinner("Génération du .xlsm…"):
+                xlsm_bytes = build_edi_xlsm(df_edi, header, template_bytes)
+            ts = _dt.datetime.now().strftime("%Y%m%d_%H%M")
+            fname = (
+                f"EDI_TVA_{_safe_name(header['raison_sociale'])}_"
+                f"{header['annee']}_M{header['periode']:02d}_{ts}.xlsm"
+            )
+            st.download_button(
+                "⬇️ Télécharger le .xlsm",
+                data=xlsm_bytes,
+                file_name=fname,
+                mime="application/vnd.ms-excel.sheet.macroEnabled.12",
+            )
+            st.success(f"Fichier prêt : {fname}")
 
 
 if __name__ == "__main__":
