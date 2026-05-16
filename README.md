@@ -21,7 +21,7 @@ L'app s'ouvre sur http://localhost:8501.
 
 ## Workflow utilisateur
 
-1. **Paramètres déclaration** (formulaire) : Raison sociale, IF, Année, Période (mois), Régime (`1 = TVA mensuel`, `2 = TVA trimestriel`).
+1. **Paramètres déclaration** (formulaire) : Raison sociale, IF, Année, Régime (`1 = TVA mensuel`, `2 = TVA trimestriel`), Période (mois 1-12 ou trimestre 1-4 selon le régime).
 2. **Upload** du fichier Odoo `.xlsx` (12 colonnes attendues, voir SPEC §"Structure de l'export Odoo").
 3. **Validation** : l'app affiche le nombre de lignes valides + un tableau d'anomalies bloquantes ligne par ligne. **Tant qu'une seule anomalie persiste, la génération est bloquée.**
 4. **Génération** : clic sur "🚀 Générer" → téléchargement du `.xlsm`.

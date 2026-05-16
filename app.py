@@ -8,12 +8,14 @@ Locked behaviour: see SPEC.md (do not deviate without sign-off).
 """
 from __future__ import annotations
 
+import base64
 import datetime as _dt
 import re
 import zipfile
 from copy import copy
 from io import BytesIO
 from pathlib import Path
+from textwrap import dedent
 
 import pandas as pd
 import streamlit as st
@@ -23,6 +25,8 @@ from openpyxl.utils import get_column_letter
 
 ROOT = Path(__file__).resolve().parent
 TEMPLATE_PATH = ROOT / "templates" / "EDI_MAROCAINE_XML_GENERATOR.xlsm"
+MSL_LOGO_PATH = ROOT / "assets" / "msl-itech-logo.png"
+EDI_LOGO_PATH = ROOT / "assets" / "edi-logo.png"
 
 PAYMENT_METHOD_MAP = {
     "ESPECES": 1,
@@ -101,13 +105,30 @@ def inject_platform_css() -> None:
     st.markdown(
         """
         <style>
+        :root {
+            --msl-teal: #0B5663;
+            --msl-dark: #071E24;
+            --msl-accent-teal: #0D9A41;
+            --msl-gold: #F4B14C;
+            --msl-soft: #F4F1EC;
+            --msl-panel: rgba(11, 86, 99, 0.34);
+            --msl-border: rgba(244, 241, 236, 0.14);
+            --msl-shadow: rgba(0, 0, 0, 0.34);
+        }
+
         .stApp {
-            background: var(--background-color);
-            color: var(--text-color);
+            background:
+                radial-gradient(circle at 12% 8%, rgba(244, 177, 76, 0.075), transparent 34rem),
+                radial-gradient(circle at 82% 2%, rgba(11, 86, 99, 0.23), transparent 38rem),
+                linear-gradient(135deg, #082129 0%, #092A31 45%, #071B20 100%);
+            color: var(--msl-soft);
         }
 
         [data-testid="stAppViewContainer"] {
-            background: var(--background-color);
+            background:
+                linear-gradient(rgba(244, 241, 236, 0.008) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(244, 241, 236, 0.008) 1px, transparent 1px);
+            background-size: 72px 72px;
         }
 
         [data-testid="stHeader"] {
@@ -119,19 +140,108 @@ def inject_platform_css() -> None:
         }
 
         .block-container {
-            max-width: 1180px;
-            padding-top: 1rem;
-            padding-bottom: 1.75rem;
+            max-width: 1200px;
+            padding-top: 1.25rem;
+            padding-bottom: 2.5rem;
         }
 
         .platform-header {
-            padding: 0.25rem 0 0.9rem;
+            padding: 1.08rem 1.2rem;
             margin-bottom: 0.9rem;
-            border-bottom: 1px solid color-mix(
+            border-radius: 22px;
+            border: 1px solid var(--msl-border);
+            background:
+                linear-gradient(135deg, rgba(244, 241, 236, 0.09), rgba(244, 241, 236, 0.035)),
+                rgba(7, 30, 36, 0.78);
+            box-shadow: 0 20px 52px rgba(0, 0, 0, 0.28);
+            backdrop-filter: blur(14px);
+        }
+
+        .platform-brand-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .platform-brand-main,
+        .platform-brand-secondary {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            min-width: 0;
+        }
+
+        .platform-brand-secondary {
+            justify-content: flex-end;
+            padding: 0.56rem 0.74rem;
+            border-radius: 16px;
+            border: 1px solid rgba(244, 177, 76, 0.24);
+            background: rgba(244, 177, 76, 0.08);
+        }
+
+        .platform-brand-logo {
+            display: block;
+            object-fit: contain;
+            flex: 0 0 auto;
+        }
+
+        .platform-brand-logo--primary {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+        }
+
+        .platform-brand-logo--secondary {
+            max-width: 72px;
+            max-height: 44px;
+        }
+
+        .platform-brand-copy {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .platform-brand-label {
+            font-size: 0.76rem;
+            font-weight: 650;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(244, 241, 236, 0.62);
+            margin-bottom: 0.12rem;
+        }
+
+        .platform-brand-name {
+            font-size: 1.42rem;
+            font-weight: 780;
+            line-height: 1.1;
+            color: var(--msl-soft);
+        }
+
+        .platform-brand-meta {
+            font-size: 0.88rem;
+            color: rgba(244, 241, 236, 0.66);
+            line-height: 1.2;
+        }
+
+        .platform-logo-fallback {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2.8rem;
+            min-height: 2.8rem;
+            padding: 0.35rem 0.5rem;
+            border-radius: 12px;
+            border: 1px solid color-mix(
                 in srgb,
-                var(--text-color) 14%,
+                var(--text-color) 12%,
                 transparent
             );
+            font-size: 0.76rem;
+            font-weight: 750;
+            color: var(--msl-soft);
+            background: rgba(217, 164, 65, 0.12);
         }
 
         .platform-eyebrow {
@@ -152,9 +262,9 @@ def inject_platform_css() -> None:
 
         .platform-subtitle {
             font-size: 0.98rem;
-            color: color-mix(in srgb, var(--text-color) 72%, var(--background-color));
-            margin-top: 0.4rem;
-            max-width: 72ch;
+            color: rgba(244, 241, 236, 0.72);
+            margin-top: 0.55rem;
+            max-width: 74ch;
         }
 
         .platform-chips {
@@ -170,17 +280,9 @@ def inject_platform_css() -> None:
             gap: 0.4rem;
             padding: 0.34rem 0.62rem;
             border-radius: 999px;
-            border: 1px solid color-mix(
-                in srgb,
-                var(--text-color) 12%,
-                transparent
-            );
-            background: color-mix(
-                in srgb,
-                var(--background-color) 88%,
-                var(--primary-color) 12%
-            );
-            color: color-mix(in srgb, var(--text-color) 84%, var(--background-color));
+            border: 1px solid rgba(244, 177, 76, 0.24);
+            background: rgba(244, 177, 76, 0.09);
+            color: rgba(244, 241, 236, 0.86);
             font-size: 0.8rem;
             font-weight: 600;
             line-height: 1;
@@ -189,43 +291,39 @@ def inject_platform_css() -> None:
         .workflow-strip {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.5rem;
-            margin: 0 0 0.85rem;
+            gap: 0.6rem;
+            margin: 0 0 1rem;
         }
 
         .workflow-step {
             display: flex;
             align-items: center;
             gap: 0.65rem;
-            padding: 0.55rem 0.75rem;
-            border-radius: 14px;
-            border: 1px solid color-mix(
-                in srgb,
-                var(--text-color) 12%,
-                transparent
-            );
-            background: color-mix(
-                in srgb,
-                var(--background-color) 90%,
-                var(--primary-color) 10%
-            );
+            padding: 0.68rem 0.82rem;
+            border-radius: 16px;
+            border: 1px solid rgba(244, 241, 236, 0.13);
+            background: rgba(7, 30, 36, 0.62);
+            box-shadow: inset 0 1px 0 rgba(244, 241, 236, 0.06);
+            transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+        }
+
+        .workflow-step:hover {
+            transform: translateY(-1px);
+            border-color: rgba(244, 177, 76, 0.28);
+            background: rgba(11, 86, 99, 0.42);
         }
 
         .workflow-index {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 1.45rem;
-            height: 1.45rem;
+            width: 1.58rem;
+            height: 1.58rem;
             border-radius: 999px;
-            background: color-mix(
-                in srgb,
-                var(--text-color) 12%,
-                var(--background-color)
-            );
-            color: color-mix(in srgb, var(--text-color) 82%, var(--background-color));
+            background: rgba(244, 177, 76, 0.17);
+            color: var(--msl-gold);
             font-size: 0.78rem;
-            font-weight: 700;
+            font-weight: 760;
             flex: 0 0 auto;
         }
 
@@ -245,7 +343,7 @@ def inject_platform_css() -> None:
 
         .workflow-hint {
             font-size: 0.78rem;
-            color: color-mix(in srgb, var(--text-color) 60%, var(--background-color));
+            color: rgba(244, 241, 236, 0.58);
             margin: 0;
         }
 
@@ -258,7 +356,7 @@ def inject_platform_css() -> None:
             font-weight: 650;
             letter-spacing: 0.08em;
             text-transform: uppercase;
-            color: color-mix(in srgb, var(--text-color) 60%, var(--background-color));
+            color: var(--msl-gold);
             margin-bottom: 0.2rem;
         }
 
@@ -271,7 +369,7 @@ def inject_platform_css() -> None:
 
         .section-note {
             font-size: 0.92rem;
-            color: color-mix(in srgb, var(--text-color) 72%, var(--background-color));
+            color: rgba(244, 241, 236, 0.66);
             margin-top: 0.2rem;
         }
 
@@ -281,28 +379,35 @@ def inject_platform_css() -> None:
         }
 
         div[data-testid="stVerticalBlockBorderWrapper"] {
-            border-radius: 18px;
-            border: 1px solid color-mix(
-                in srgb,
-                var(--text-color) 12%,
-                transparent
-            );
-            background: color-mix(
-                in srgb,
-                var(--background-color) 94%,
-                var(--primary-color) 6%
-            );
-            box-shadow: 0 8px 28px color-mix(
-                in srgb,
-                var(--text-color) 8%,
-                transparent
-            );
-            padding: 0.95rem 1rem 1rem;
-            margin-bottom: 0.9rem;
+            border-radius: 24px;
+            border: 1px solid rgba(244, 241, 236, 0.145);
+            background:
+                linear-gradient(135deg, rgba(244, 241, 236, 0.082), rgba(244, 241, 236, 0.028)),
+                rgba(7, 30, 36, 0.72);
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+            backdrop-filter: blur(12px);
+            padding: 1.2rem 1.25rem 1.25rem;
+            margin-bottom: 1.1rem;
+        }
+
+        @media (max-width: 720px) {
+            .platform-brand-row {
+                grid-template-columns: 1fr;
+            }
+
+            .platform-brand-secondary {
+                justify-content: flex-start;
+                width: fit-content;
+            }
+
+            .workflow-strip {
+                grid-template-columns: 1fr 1fr;
+            }
         }
 
         div[data-testid="stExpander"] {
-            border-color: color-mix(in srgb, var(--text-color) 14%, transparent);
+            border-color: rgba(244, 241, 236, 0.14);
+            background: rgba(7, 30, 36, 0.35);
         }
 
         div[data-testid="stDataFrame"] {
@@ -312,12 +417,766 @@ def inject_platform_css() -> None:
 
         div[data-testid="stAlert"] {
             border-radius: 14px;
-            border: 1px solid color-mix(
-                in srgb,
-                var(--text-color) 12%,
+            border: 1px solid rgba(244, 177, 76, 0.18);
+            background:
+                linear-gradient(135deg, rgba(11, 86, 99, 0.32), rgba(7, 30, 36, 0.5));
+            box-shadow: none;
+        }
+
+        .stButton > button,
+        .stDownloadButton > button {
+            min-height: 3.18rem;
+            border-radius: 18px;
+            border: 1px solid rgba(244, 177, 76, 0.56);
+            background:
+                linear-gradient(135deg, rgba(244, 177, 76, 0.38), rgba(244, 177, 76, 0.16));
+            box-shadow:
+                inset 0 1px 0 rgba(244, 241, 236, 0.18),
+                0 16px 38px rgba(244, 177, 76, 0.18);
+            font-weight: 800;
+            letter-spacing: 0.01em;
+            transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+        }
+
+        .stButton > button:hover,
+        .stDownloadButton > button:hover {
+            transform: translateY(-1px);
+            border-color: rgba(244, 177, 76, 0.66);
+            box-shadow:
+                inset 0 1px 0 rgba(244, 241, 236, 0.22),
+                0 20px 48px rgba(244, 177, 76, 0.25);
+        }
+
+        div[data-testid="stTextInput"] input,
+        div[data-baseweb="select"] > div {
+            min-height: 2.75rem;
+            border-radius: 14px;
+            border-color: rgba(11, 86, 99, 0.58);
+            background-color: rgba(7, 30, 36, 0.26);
+            transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+        }
+
+        div[data-testid="stTextInput"] input:focus,
+        div[data-baseweb="select"] > div:focus-within {
+            border-color: rgba(244, 177, 76, 0.58);
+            box-shadow: 0 0 0 3px rgba(244, 177, 76, 0.1);
+        }
+
+        .intro-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.45rem;
+            padding: 0.58rem 0.82rem;
+            border-radius: 999px;
+            border: 1px solid rgba(244, 241, 236, 0.16);
+            background: rgba(244, 241, 236, 0.065);
+            box-shadow: 0 16px 38px rgba(0, 0, 0, 0.24);
+            backdrop-filter: blur(12px);
+        }
+
+        .intro-logo {
+            display: block;
+            width: 56px;
+            height: 56px;
+            object-fit: contain;
+            border-radius: 12px;
+        }
+
+        .intro-brand-text {
+            font-size: 0.82rem;
+            font-weight: 750;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(244, 241, 236, 0.7);
+        }
+
+        .intro-eyebrow {
+            width: fit-content;
+            margin-bottom: 0.72rem;
+            padding: 0.32rem 0.56rem;
+            border-radius: 999px;
+            border: 1px solid rgba(244, 177, 76, 0.28);
+            background: rgba(244, 177, 76, 0.085);
+            color: var(--msl-gold);
+            font-size: 0.74rem;
+            font-weight: 760;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .intro-title {
+            max-width: 700px;
+            font-size: clamp(3.15rem, 6vw, 5.45rem);
+            line-height: 0.96;
+            font-weight: 850;
+            margin: 0;
+            color: var(--msl-soft);
+        }
+
+        .intro-subtitle {
+            max-width: 680px;
+            margin-top: 1rem;
+            font-size: clamp(1.12rem, 1.78vw, 1.48rem);
+            font-weight: 680;
+            line-height: 1.28;
+            color: rgba(244, 241, 236, 0.82);
+        }
+
+        .intro-description {
+            max-width: 650px;
+            margin-top: 1.2rem;
+            font-size: 0.98rem;
+            line-height: 1.65;
+            color: rgba(244, 241, 236, 0.68);
+        }
+
+        .intro-trust-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.78rem;
+            margin-top: 1.85rem;
+            max-width: 680px;
+        }
+
+        .intro-trust-card {
+            display: flex;
+            align-items: center;
+            gap: 0.58rem;
+            padding: 0.98rem 1.02rem;
+            border-radius: 16px;
+            border: 1px solid rgba(244, 241, 236, 0.145);
+            background:
+                linear-gradient(135deg, rgba(244, 241, 236, 0.075), rgba(244, 241, 236, 0.035));
+            color: rgba(244, 241, 236, 0.86);
+            font-size: 0.86rem;
+            font-weight: 680;
+            box-shadow: inset 0 1px 0 rgba(244, 241, 236, 0.08);
+            transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+        }
+
+        .intro-trust-card:hover {
+            transform: translateY(-1px);
+            border-color: rgba(244, 177, 76, 0.3);
+            background:
+                linear-gradient(135deg, rgba(244, 241, 236, 0.095), rgba(244, 177, 76, 0.05));
+        }
+
+        .intro-trust-dot {
+            display: inline-flex;
+            width: 0.56rem;
+            height: 0.56rem;
+            border-radius: 999px;
+            background: var(--msl-gold);
+            box-shadow: 0 0 18px rgba(217, 164, 65, 0.48);
+            flex: 0 0 auto;
+        }
+
+        .intro-flow-card {
+            display: grid;
+            position: relative;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            align-items: center;
+            gap: 0.92rem;
+            max-width: 680px;
+            margin-top: 1.25rem;
+        }
+
+        .intro-flow-card::before,
+        .intro-flow-card::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 1.35rem;
+            height: 2px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, transparent, rgba(244, 177, 76, 0.82));
+            box-shadow: 0 0 14px rgba(244, 177, 76, 0.2);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .intro-flow-card::before {
+            left: calc(33.333% - 0.68rem);
+            transform: translate(-50%, -50%);
+        }
+
+        .intro-flow-card::after {
+            left: calc(66.666% - 0.68rem);
+            transform: translate(-50%, -50%);
+        }
+
+        .intro-flow-node {
+            display: flex;
+            min-width: 0;
+            height: 4.65rem;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.78rem 0.88rem;
+            border-radius: 16px;
+            border: 1px solid rgba(244, 177, 76, 0.16);
+            background:
+                linear-gradient(135deg, rgba(244, 241, 236, 0.07), rgba(11, 86, 99, 0.16));
+            box-shadow:
+                inset 0 1px 0 rgba(244, 241, 236, 0.08),
+                0 14px 30px rgba(0, 0, 0, 0.16);
+            text-align: center;
+        }
+
+        .intro-flow-label {
+            font-size: 0.72rem;
+            font-weight: 780;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: rgba(244, 241, 236, 0.54);
+            white-space: nowrap;
+        }
+
+        .intro-flow-value {
+            margin-top: 0.1rem;
+            font-size: 0.94rem;
+            font-weight: 760;
+            line-height: 1.22;
+            color: var(--msl-soft);
+            white-space: nowrap;
+        }
+
+        .intro-panel {
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 0.85rem;
+            padding: 1.45rem;
+            border-radius: 28px;
+            border: 1px solid rgba(244, 241, 236, 0.18);
+            background:
+                radial-gradient(circle at 82% 18%, rgba(244, 177, 76, 0.2), transparent 11rem),
+                radial-gradient(circle at 14% 92%, rgba(11, 86, 99, 0.34), transparent 12rem),
+                linear-gradient(145deg, rgba(244, 241, 236, 0.14), rgba(244, 241, 236, 0.045)),
+                rgba(7, 30, 36, 0.82);
+            color: var(--msl-soft);
+            box-shadow: 0 26px 68px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(18px);
+        }
+
+        .intro-panel::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(rgba(244, 241, 236, 0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(244, 241, 236, 0.035) 1px, transparent 1px);
+            background-size: 28px 28px;
+            mask-image: linear-gradient(to bottom, black, transparent 82%);
+            pointer-events: none;
+        }
+
+        .intro-panel > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .intro-panel-kicker {
+            font-size: 0.76rem;
+            font-weight: 760;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            opacity: 0.72;
+        }
+
+        .intro-panel-title {
+            margin-top: 0.25rem;
+            font-size: 1.38rem;
+            font-weight: 780;
+            line-height: 1.2;
+        }
+
+        .intro-steps {
+            display: grid;
+            gap: 0.72rem;
+            margin-top: 1.22rem;
+        }
+
+        .intro-step {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.9rem 0.92rem;
+            border-radius: 18px;
+            background:
+                linear-gradient(135deg, rgba(244, 241, 236, 0.095), rgba(11, 86, 99, 0.16));
+            border: 1px solid rgba(244, 241, 236, 0.12);
+            transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+        }
+
+        .intro-step:hover {
+            transform: translateY(-1px);
+            background:
+                linear-gradient(135deg, rgba(244, 241, 236, 0.13), rgba(244, 177, 76, 0.065));
+            border-color: rgba(244, 177, 76, 0.34);
+        }
+
+        .intro-step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.18rem;
+            height: 2.18rem;
+            border-radius: 999px;
+            background:
+                radial-gradient(circle at 35% 30%, rgba(244, 177, 76, 0.32), rgba(244, 177, 76, 0.14));
+            color: var(--msl-gold);
+            font-size: 0.86rem;
+            font-weight: 820;
+            flex: 0 0 auto;
+            box-shadow:
+                0 0 0 1px rgba(244, 177, 76, 0.18),
+                0 10px 24px rgba(244, 177, 76, 0.12);
+        }
+
+        .intro-step-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 0.04rem;
+        }
+
+        .intro-step-label {
+            font-size: 0.96rem;
+            font-weight: 680;
+        }
+
+        .intro-step-hint {
+            font-size: 0.78rem;
+            color: rgba(244, 241, 236, 0.56);
+        }
+
+        .intro-compat-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1.1rem;
+        }
+
+        .intro-compat-chip {
+            padding: 0.4rem 0.62rem;
+            border-radius: 999px;
+            background: rgba(244, 177, 76, 0.1);
+            border: 1px solid rgba(244, 177, 76, 0.22);
+            font-size: 0.8rem;
+            font-weight: 680;
+        }
+
+        .intro-panel-reassurance {
+            margin-top: 0.9rem;
+            padding: 0.82rem 0.88rem;
+            border-radius: 16px;
+            border: 1px solid rgba(244, 241, 236, 0.12);
+            background: rgba(244, 241, 236, 0.065);
+            font-size: 0.86rem;
+            line-height: 1.45;
+            opacity: 0.86;
+        }
+
+        .intro-reassurance {
+            margin-top: 0.85rem;
+            font-size: 0.88rem;
+            color: rgba(244, 241, 236, 0.64);
+            text-align: center;
+        }
+
+        .intro-ambient {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .intro-ambient::before,
+        .intro-ambient::after {
+            content: "";
+            position: absolute;
+            width: 38rem;
+            height: 38rem;
+            border-radius: 999px;
+            filter: blur(64px);
+            opacity: 0.18;
+            animation: introGlow 14s ease-in-out infinite alternate;
+        }
+
+        .intro-ambient::before {
+            left: -12rem;
+            top: -12rem;
+            background: rgba(11, 86, 99, 0.46);
+        }
+
+        .intro-ambient::after {
+            right: -12rem;
+            bottom: -14rem;
+            background: rgba(244, 177, 76, 0.2);
+            animation-delay: -5s;
+        }
+
+        .intro-scanline {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background: linear-gradient(
+                180deg,
+                transparent 0%,
+                rgba(244, 241, 236, 0.018) 50%,
+                transparent 100%
+            );
+            background-size: 100% 18px;
+            opacity: 0.09;
+        }
+
+        .intro-page {
+            position: relative;
+            z-index: 1;
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 1.3rem 0 2.6rem;
+            text-align: center;
+        }
+
+        .intro-brand-center {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.82rem;
+            padding: 0.6rem 0.9rem;
+            border-radius: 999px;
+            border: 1px solid rgba(244, 241, 236, 0.16);
+            background: rgba(244, 241, 236, 0.065);
+            box-shadow: 0 16px 38px rgba(0, 0, 0, 0.22);
+            backdrop-filter: blur(12px);
+        }
+
+        .intro-brand-center .intro-logo {
+            width: 54px;
+            height: 54px;
+        }
+
+        .intro-brand-copy {
+            text-align: left;
+            line-height: 1.1;
+        }
+
+        .intro-brand-name {
+            color: var(--msl-soft);
+            font-size: 1rem;
+            font-weight: 820;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .intro-platform-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 0.85rem;
+            padding: 0.38rem 0.72rem;
+            border-radius: 999px;
+            border: 1px solid rgba(244, 177, 76, 0.28);
+            background: rgba(244, 177, 76, 0.075);
+            color: var(--msl-gold);
+            font-size: 0.7rem;
+            font-weight: 760;
+            letter-spacing: 0.11em;
+            text-transform: uppercase;
+            box-shadow: inset 0 1px 0 rgba(244, 241, 236, 0.08);
+        }
+
+        .intro-hero {
+            max-width: 860px;
+            margin: 2.05rem auto 0;
+        }
+
+        .intro-hero-title {
+            margin: 0;
+            color: var(--msl-soft);
+            font-size: clamp(3.35rem, 7vw, 6.1rem);
+            font-weight: 860;
+            line-height: 0.96;
+        }
+
+        .intro-hero-subtitle {
+            max-width: 760px;
+            margin: 1rem auto 0;
+            color: rgba(244, 241, 236, 0.84);
+            font-size: clamp(1.18rem, 2.1vw, 1.62rem);
+            font-weight: 700;
+            line-height: 1.28;
+        }
+
+        .intro-hero-description {
+            max-width: 760px;
+            margin: 1.1rem auto 0;
+            color: rgba(244, 241, 236, 0.66);
+            font-size: 1rem;
+            line-height: 1.65;
+        }
+
+        .intro-trust-centered {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.82rem;
+            margin: 1.85rem auto 0;
+        }
+
+        .intro-trust-centered .intro-trust-card {
+            min-height: 5.2rem;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+            gap: 0.54rem;
+            padding: 0.95rem 0.85rem;
+        }
+
+        .intro-trust-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.72rem;
+            height: 1.72rem;
+            border-radius: 999px;
+            border: 1px solid rgba(244, 177, 76, 0.38);
+            color: var(--msl-gold);
+            background: rgba(244, 177, 76, 0.08);
+            font-size: 0.82rem;
+            font-weight: 820;
+            box-shadow: 0 0 18px rgba(244, 177, 76, 0.12);
+        }
+
+        .intro-workflow-panel {
+            max-width: 980px;
+            margin: 2.05rem auto 0;
+            padding: 1.32rem;
+            border-radius: 28px;
+            border: 1px solid rgba(244, 241, 236, 0.17);
+            background:
+                radial-gradient(circle at 82% 16%, rgba(244, 177, 76, 0.13), transparent 13rem),
+                linear-gradient(145deg, rgba(244, 241, 236, 0.105), rgba(244, 241, 236, 0.035)),
+                rgba(7, 30, 36, 0.78);
+            box-shadow: 0 26px 68px rgba(0, 0, 0, 0.28);
+            backdrop-filter: blur(16px);
+        }
+
+        .intro-workflow-title {
+            color: var(--msl-soft);
+            font-size: 0.95rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            line-height: 1.25;
+            text-transform: uppercase;
+        }
+
+        .intro-workflow-grid {
+            position: relative;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .intro-workflow-grid::before {
+            content: "";
+            position: absolute;
+            left: 12%;
+            right: 12%;
+            top: 1.52rem;
+            height: 1px;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(244, 177, 76, 0.42),
                 transparent
             );
-            box-shadow: none;
+            pointer-events: none;
+        }
+
+        .intro-workflow-card {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            min-height: 7.45rem;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.9rem 0.75rem;
+            border-radius: 18px;
+            border: 1px solid rgba(244, 241, 236, 0.13);
+            background:
+                linear-gradient(135deg, rgba(244, 241, 236, 0.09), rgba(11, 86, 99, 0.14));
+            box-shadow: inset 0 1px 0 rgba(244, 241, 236, 0.08);
+            text-align: center;
+            transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+        }
+
+        .intro-workflow-card:hover {
+            transform: translateY(-1px);
+            border-color: rgba(244, 177, 76, 0.32);
+            background:
+                linear-gradient(135deg, rgba(244, 241, 236, 0.12), rgba(244, 177, 76, 0.06));
+        }
+
+        .intro-workflow-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.1rem;
+            height: 2.1rem;
+            margin-bottom: 0.64rem;
+            border-radius: 999px;
+            background:
+                radial-gradient(circle at 35% 30%, rgba(244, 177, 76, 0.32), rgba(244, 177, 76, 0.14));
+            color: var(--msl-gold);
+            font-size: 0.82rem;
+            font-weight: 840;
+            box-shadow:
+                0 0 0 1px rgba(244, 177, 76, 0.18),
+                0 10px 24px rgba(244, 177, 76, 0.12);
+        }
+
+        .intro-workflow-label {
+            color: var(--msl-soft);
+            font-size: 0.92rem;
+            font-weight: 760;
+            line-height: 1.22;
+        }
+
+        .intro-workflow-helper {
+            max-width: 11rem;
+            margin-top: 0.34rem;
+            color: rgba(244, 241, 236, 0.54);
+            font-size: 0.76rem;
+            font-weight: 560;
+            line-height: 1.24;
+        }
+
+        .intro-process-line {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.52rem;
+            margin-top: 1.1rem;
+            padding: 0.46rem 0.7rem;
+            border-radius: 999px;
+            border: 1px solid rgba(244, 177, 76, 0.16);
+            background: rgba(244, 177, 76, 0.065);
+            color: rgba(244, 241, 236, 0.72);
+            font-size: 0.82rem;
+            font-weight: 680;
+        }
+
+        .intro-process-separator {
+            width: 1.4rem;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(244, 177, 76, 0.7), transparent);
+        }
+
+        .intro-cta-zone {
+            height: 1.15rem;
+        }
+
+        @keyframes introGlow {
+            from { transform: translate3d(0, 0, 0) scale(1); }
+            to { transform: translate3d(2rem, 1.2rem, 0) scale(1.08); }
+        }
+
+        @media (max-width: 880px) {
+            .intro-page {
+                padding-top: 0.5rem;
+            }
+
+            .intro-trust-centered,
+            .intro-workflow-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .intro-workflow-grid::before {
+                display: none;
+            }
+
+            .intro-trust-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .intro-flow-card {
+                grid-template-columns: 1fr;
+            }
+
+            .intro-flow-card::before,
+            .intro-flow-card::after {
+                display: none;
+            }
+
+            .intro-process-line {
+                flex-wrap: wrap;
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .stApp {
+                background:
+                    radial-gradient(circle at 10% 4%, rgba(244, 177, 76, 0.13), transparent 26rem),
+                    radial-gradient(circle at 88% 0%, rgba(11, 86, 99, 0.14), transparent 32rem),
+                    linear-gradient(135deg, #F4F1EC 0%, #EEF4F2 45%, #F9F6EF 100%);
+                color: #071E24;
+            }
+
+            .platform-header,
+            div[data-testid="stVerticalBlockBorderWrapper"],
+            .intro-brand,
+            .intro-flow-card,
+            .intro-panel {
+                border-color: rgba(7, 30, 36, 0.12);
+                background:
+                    linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.42)),
+                    rgba(244, 241, 236, 0.68);
+                color: #071E24;
+                box-shadow: 0 18px 46px rgba(7, 30, 36, 0.1);
+            }
+
+            .platform-brand-name,
+            .intro-title,
+            .intro-flow-value {
+                color: #071E24;
+            }
+
+            .platform-brand-label,
+            .platform-brand-meta,
+            .platform-subtitle,
+            .workflow-hint,
+            .section-note,
+            .intro-brand-text,
+            .intro-subtitle,
+            .intro-description,
+            .intro-flow-label,
+            .intro-workflow-helper,
+            .intro-step-hint,
+            .intro-reassurance {
+                color: rgba(7, 30, 36, 0.66);
+            }
+
+            .workflow-step,
+            .intro-trust-card,
+            .intro-flow-node,
+            .intro-workflow-card,
+            .intro-step,
+            .intro-panel-reassurance {
+                border-color: rgba(7, 30, 36, 0.1);
+                background: rgba(255, 255, 255, 0.48);
+                color: #071E24;
+            }
+
+            div[data-testid="stTextInput"] input,
+            div[data-baseweb="select"] > div {
+                background-color: rgba(255, 255, 255, 0.56);
+                border-color: rgba(7, 30, 36, 0.14);
+            }
         }
         </style>
         """,
@@ -325,21 +1184,55 @@ def inject_platform_css() -> None:
     )
 
 
+def _logo_img(path: Path, alt: str, class_name: str, fallback: str) -> str:
+    if not path.exists():
+        return f'<span class="platform-logo-fallback">{fallback}</span>'
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f'<img class="{class_name}" src="data:image/png;base64,{encoded}" alt="{alt}" />'
+
+
 def render_platform_header() -> None:
     """Render the page header without affecting business flow."""
+    msl_logo = _logo_img(
+        MSL_LOGO_PATH,
+        "MSL-iTECH",
+        "platform-brand-logo platform-brand-logo--primary",
+        "MSL",
+    )
+    edi_logo = _logo_img(
+        EDI_LOGO_PATH,
+        "EDI",
+        "platform-brand-logo platform-brand-logo--secondary",
+        "EDI",
+    )
     st.markdown(
-        """
+        f"""
         <div class="platform-header">
-            <div class="platform-eyebrow">MSL-iTECH · Odoo vers EDI .xlsm</div>
-            <h1 class="platform-title">EDI TVA Maroc</h1>
+            <div class="platform-brand-row">
+                <div class="platform-brand-main">
+                    {msl_logo}
+                    <div class="platform-brand-copy">
+                        <div class="platform-brand-label">MSL-iTECH</div>
+                        <div class="platform-brand-name">EDI TVA Maroc</div>
+                <div class="platform-brand-meta">Préparation automatisée de la déclaration TVA</div>
+                    </div>
+                </div>
+                <div class="platform-brand-secondary">
+                    {edi_logo}
+                    <div class="platform-brand-copy">
+                        <div class="platform-brand-label">Format EDI</div>
+                        <div class="platform-brand-meta">XML DGI</div>
+                    </div>
+                </div>
+            </div>
             <div class="platform-subtitle">
-                Préparez un fichier .xlsm prêt pour Excel Windows, avec validation
-                bloquante et conservation du template DGI.
+                Importez votre export Odoo, contrôlez les anomalies bloquantes,
+                puis préparez un fichier .xlsm conforme au modèle DGI.
             </div>
             <div class="platform-chips">
-                <span class="platform-chip">Validation bloquante</span>
-                <span class="platform-chip">Excel Windows</span>
-                <span class="platform-chip">XML Map DGI</span>
+                <span class="platform-chip">Contrôles bloquants</span>
+                <span class="platform-chip">Export via Excel Windows</span>
+                <span class="platform-chip">XML Map conservée</span>
             </div>
         </div>
         """,
@@ -399,6 +1292,115 @@ def render_section_header(step: str, title: str, note: str | None = None) -> Non
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_intro_page() -> None:
+    """Render the static intro screen before entering the platform workflow."""
+    msl_logo = _logo_img(
+        MSL_LOGO_PATH,
+        "MSL-iTECH",
+        "intro-logo",
+        "MSL",
+    )
+    ambient_html = dedent(
+        """
+        <div class="intro-ambient"></div>
+        <div class="intro-scanline"></div>
+        """
+    ).strip()
+    st.markdown(ambient_html, unsafe_allow_html=True)
+
+    _, intro_col, _ = st.columns([0.025, 0.95, 0.025])
+    with intro_col:
+        intro_html = dedent(
+            f"""
+            <div class="intro-page">
+              <div class="intro-brand-center">
+                {msl_logo}
+                <div class="intro-brand-copy">
+                  <div class="intro-brand-name">MSL-iTECH</div>
+                </div>
+              </div>
+              <div class="intro-platform-badge">Fiscal Workflow Platform</div>
+
+              <section class="intro-hero">
+                <h1 class="intro-hero-title">EDI TVA Maroc</h1>
+                <div class="intro-hero-subtitle">
+                  Préparation automatisée de la déclaration TVA
+                </div>
+                <div class="intro-hero-description">
+                  Importez votre export Odoo puis générez automatiquement
+                  un fichier DGI conforme avec validation bloquante.
+                </div>
+              </section>
+
+              <section class="intro-trust-centered">
+                <div class="intro-trust-card">
+                  <span class="intro-trust-icon">✓</span>
+                  <span>Contrôles bloquants</span>
+                </div>
+                <div class="intro-trust-card">
+                  <span class="intro-trust-icon">DGI</span>
+                  <span>Modèle .XLSM DGI préservé</span>
+                </div>
+                <div class="intro-trust-card">
+                  <span class="intro-trust-icon">XML</span>
+                  <span>XML Map conservée</span>
+                </div>
+                <div class="intro-trust-card">
+                  <span class="intro-trust-icon">XL</span>
+                  <span>Export via Excel Windows</span>
+                </div>
+              </section>
+
+              <section class="intro-workflow-panel">
+                <div class="intro-workflow-title">
+                  Un workflow fiscal clair et sécurisé
+                </div>
+                <div class="intro-workflow-grid">
+                  <div class="intro-workflow-card">
+                    <div class="intro-workflow-number">1</div>
+                    <div class="intro-workflow-label">Paramètres fiscaux</div>
+                    <div class="intro-workflow-helper">IF, année, période, régime</div>
+                  </div>
+                  <div class="intro-workflow-card">
+                    <div class="intro-workflow-number">2</div>
+                    <div class="intro-workflow-label">Import Odoo</div>
+                    <div class="intro-workflow-helper">Export factures fournisseurs</div>
+                  </div>
+                  <div class="intro-workflow-card">
+                    <div class="intro-workflow-number">3</div>
+                    <div class="intro-workflow-label">Contrôle des anomalies</div>
+                    <div class="intro-workflow-helper">Lignes invalides détectées</div>
+                  </div>
+                  <div class="intro-workflow-card">
+                    <div class="intro-workflow-number">4</div>
+                    <div class="intro-workflow-label">Préparation .XLSM</div>
+                    <div class="intro-workflow-helper">Macro et XML Map conservés</div>
+                  </div>
+                </div>
+                <div class="intro-process-line">
+                  <span>Odoo Export</span>
+                  <span class="intro-process-separator"></span>
+                  <span>Contrôle fiscal</span>
+                  <span class="intro-process-separator"></span>
+                  <span>Export DGI</span>
+                </div>
+              </section>
+            </div>
+            """
+        ).strip()
+        st.markdown(intro_html, unsafe_allow_html=True)
+        st.markdown('<div class="intro-cta-zone"></div>', unsafe_allow_html=True)
+        _, cta_col, _ = st.columns([1, 0.72, 1])
+        with cta_col:
+            if st.button("Démarrer la préparation EDI", type="primary", use_container_width=True):
+                st.session_state.page = "platform"
+                st.rerun()
+        st.markdown(
+            '<div class="intro-reassurance">Traitement limité à la préparation du fichier de déclaration.</div>',
+            unsafe_allow_html=True,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -898,6 +1900,13 @@ def _safe_name(s: str) -> str:
 def main() -> None:
     st.set_page_config(page_title="EDI TVA Maroc", page_icon="📑", layout="wide")
     inject_platform_css()
+
+    if "page" not in st.session_state:
+        st.session_state.page = "intro"
+    if st.session_state.page == "intro":
+        render_intro_page()
+        return
+
     render_platform_header()
     render_workflow_strip()
 
@@ -912,25 +1921,32 @@ def main() -> None:
             "Paramètres de la déclaration",
             "Saisissez les informations du header avant d’importer l’export Odoo.",
         )
-        with st.form("decl_form"):
-            c1, c2 = st.columns(2)
-            with c1:
-                raison_sociale = st.text_input("Raison sociale")
-            with c2:
-                if_decl = st.text_input("Identifiant fiscal (IF)")
-            c3, c4, c5 = st.columns(3)
-            with c3:
-                annee = st.selectbox("Année", list(range(2016, 2031)), index=10)
-            with c4:
-                periode = st.selectbox("Période (mois)", list(range(1, 13)), index=0)
-            with c5:
-                regime = st.radio(
-                    "Régime",
-                    [1, 2],
-                    format_func=lambda v: "Mensuel" if v == 1 else "Trimestriel",
-                    horizontal=True,
-                )
-            submitted = st.form_submit_button("✅ Valider paramètres")
+        c1, c2 = st.columns(2)
+        with c1:
+            raison_sociale = st.text_input("Raison sociale")
+        with c2:
+            if_decl = st.text_input("Identifiant fiscal (IF)")
+
+        c3, c4, c5 = st.columns(3)
+        with c3:
+            regime_label = st.selectbox("Régime", ["Mensuel", "Trimestriel"])
+            regime = 1 if regime_label == "Mensuel" else 2
+        with c4:
+            current_year = _dt.datetime.now().year
+            year_options = [current_year - 1, current_year]
+            annee = st.selectbox("Année", year_options, index=1)
+
+        period_options = list(range(1, 13)) if regime == 1 else list(range(1, 5))
+        period_label = "Période (mois)" if regime == 1 else "Période (trimestre)"
+        with c5:
+            periode = st.selectbox(
+                period_label,
+                period_options,
+                index=0,
+                key=f"periode_{regime}",
+            )
+
+        submitted = st.button("✅ Valider paramètres")
 
     if submitted:
         if not raison_sociale.strip() or not if_decl.strip():

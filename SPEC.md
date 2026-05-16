@@ -85,9 +85,9 @@ Ces relevés peuvent être saisis manuellement OU importés via un **fichier XML
 4. Les 5 champs du header EDI sont saisis dans Streamlit à chaque génération (pas de config par client) :
    - `Raison sociale` (texte libre)
    - `Identifiant fiscal IF` (texte/nombre)
-   - `Année` (dropdown 2016–2030)
-   - `Période` (dropdown 1–12, représente le mois)
-   - `Régime` (radio : 1 = TVA mensuel, 2 = TVA trimestriel)
+   - `Année` (dropdown dynamique : année courante - 1, année courante ; défaut = année courante)
+   - `Régime` (selectbox : 1 = TVA mensuel, 2 = TVA trimestriel)
+   - `Période` (dropdown dépendant du régime : 1–12 si mensuel, 1–4 si trimestriel)
 
 ### Mapping des colonnes (Odoo → EDI)
 
@@ -344,7 +344,7 @@ Cabinet MSL-iTECH · Mapping Odoo → Template EDI .xlsm
 
 1️⃣  Paramètres de la déclaration
    [Raison sociale]    [IF]
-   [Année ▼]    [Période ▼]    [Régime ⦿ Mensuel ○ Trimestriel]
+   [Régime ▼]    [Année ▼]    [Période ▼]
    [✅ Valider paramètres]
 
 2️⃣  Upload export Odoo (.xlsx)
@@ -479,8 +479,8 @@ Données attendues après analyse :
 ### Cellules header EDI (à écrire)
 - `C2` : Raison Sociale
 - `C3` : Identifiant Fiscal
-- `C4` : Année (int, validation list 2016-2030)
-- `C5` : Période (int, validation list 1-12)
+- `C4` : Année (int, année courante - 1 ou année courante)
+- `C5` : Période (int, 1-12 si mensuel, 1-4 si trimestriel)
 - `C6` : Régime (int, 1=TVA mensuel, 2=TVA trimestriel)
 
 ### Tableau5 (à écrire)
