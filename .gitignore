@@ -222,3 +222,7 @@ __marimo__/
 
 # Test artefacts
 scripts/out_test.xlsm
+
+# Design source files (bundler)
+EDI TVA Maroc - Standalone.html
+EDI TVA Maroc - v1 Premium SaaS.html
