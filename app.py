@@ -35,6 +35,8 @@ PAYMENT_METHOD_MAP = {
     "PRELEVEMENT": 3,
     "VIREMENT": 4,
     "LCN": 5,
+    "COMPENSATIONS": 6,
+    "AUTRES": 7,
 }
 
 ODOO_REQUIRED_COLS = [

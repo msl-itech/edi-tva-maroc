@@ -103,17 +103,19 @@ Ces relevés peuvent être saisis manuellement OU importés via un **fichier XML
 | H | `LIB_FRSS` (nom) | H `Partenaire` | string, strip |
 | I | `ICE_FRS` (ice) | I `ICE` | **string 15 caractères, zéros à gauche préservés** |
 | J | `TAUX` (tx) | F `Lignes de facture/Taxes` | **Parse "20% 146" → 0.20** (float), cellule formatée `0%` |
-| K | `ID_PAIE` (mp/id) | J `Méthode de paiement` | Lookup → 1-5 (voir table ci-dessous) |
+| K | `ID_PAIE` (mp/id) | J `Méthode de paiement` | Lookup → 1-7 (voir table ci-dessous) |
 | L | `DATE_PAIE` (dpai) | K `Date de paiement` | datetime, format `yyyy-mm-dd` |
 | M | `DATE_FAC` (dfac) | L `Date de facturation` | datetime, format `yyyy-mm-dd` |
 
 ### Table de mapping des méthodes de paiement
 ```
-ESPECES      → 1   (Espèce)
-CHEQUE       → 2   (Chèque)
-PRELEVEMENT  → 3   (Prélèvement)
-VIREMENT     → 4   (Virement)
-LCN          → 5   (Effet / Lettre de Change Normalisée)
+ESPECES        → 1   (Espèce)
+CHEQUE         → 2   (Chèque)
+PRELEVEMENT    → 3   (Prélèvement)
+VIREMENT       → 4   (Virement)
+LCN            → 5   (Effet / Lettre de Change Normalisée)
+COMPENSATIONS  → 6   (Compensations)
+AUTRES         → 7   (Autres)
 ```
 - Toute autre valeur → **anomalie bloquante**
 - Valeur vide → **anomalie bloquante**
@@ -200,7 +202,7 @@ Date de paiement, Date de facturation, Méthode de paiement
 Si l'un est vide → ajouter à `anomalies[]` et `continue`.
 
 **Étape 2 — Vérifier la méthode de paiement** :
-- Doit être dans `{ESPECES, CHEQUE, PRELEVEMENT, VIREMENT, LCN}` (case-insensitive)
+- Doit être dans `{ESPECES, CHEQUE, PRELEVEMENT, VIREMENT, LCN, COMPENSATIONS, AUTRES}` (case-insensitive)
 - Sinon → anomalie
 
 **Étape 3 — Extraire le TAUX** :
@@ -524,7 +526,7 @@ M (DATE_FAC)   → /DeclarationReleveDeduction/releveDeductions/rd/dfac
 | G | IF | str→int | ✅ | Identifiant fiscal fournisseur |
 | H | Partenaire | str | ✅ | Nom du fournisseur |
 | I | ICE | str | ✅ | 15 chars avec zéros à gauche |
-| J | Méthode de paiement | str | ✅ | ESPECES/CHEQUE/PRELEVEMENT/VIREMENT/LCN |
+| J | Méthode de paiement | str | ✅ | ESPECES/CHEQUE/PRELEVEMENT/VIREMENT/LCN/COMPENSATIONS/AUTRES |
 | K | Date de paiement | date | ✅ | datetime |
 | L | Date de facturation | date | ✅ | datetime |
 
